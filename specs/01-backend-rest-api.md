@@ -216,6 +216,7 @@ Clients branch on `code`. The `message` is fixed per code and may change without
 - **Yes:** the error mapping is the unexported function `mapError` in `errors.go`, tested from package `httpapi` rather than `httpapi_test` so the test can call it. (default, not asked)
 - **Yes:** the timeout and shutdown values in Server configuration. Requests are tiny, so these limits never bind in normal use. (default, not asked)
 - **Yes:** Makefile recipes are plain `go` commands, so they run the same under `sh` and `cmd.exe` with GNU Make on Windows. (default, not asked)
+- **Yes:** a root `.gitattributes` with `* text=auto eol=lf`, committed on its own before step 2. With `core.autocrlf=true`, a Windows clone would otherwise check out CRLF Go files, and `gofmt -l` lists those as unformatted. (asked during implementation)
 
 ## Risks
 
