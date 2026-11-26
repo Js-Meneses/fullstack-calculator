@@ -1,0 +1,14 @@
+# Spec workflow configuration
+#
+# AutoCreateBranch: true  -> /spec-impl creates and switches to spec-NN-slug without asking.
+#                   false -> /spec-impl asks before creating the branch.
+AutoCreateBranch: true
+
+# AutoCommitSteps: true  -> /spec-impl commits each step after you approve its diff,
+#                           using the commit subject written in the plan.
+#                  false -> /spec-impl never commits. It prints the git commands for you.
+AutoCommitSteps: true
+
+# PromptLog: the file where /spec and /spec-impl record the prompts you give them.
+#            Set it to none to turn the log off.
+PromptLog: PROMPTS.md
