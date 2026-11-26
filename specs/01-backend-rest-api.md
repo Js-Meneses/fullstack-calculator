@@ -1,6 +1,6 @@
 # SPEC 01 — Backend REST API
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** None
 > **Date:** 2026-11-26
 > **Objective:** A Go service that computes the seven calculator operations through `POST /api/v1/calculations` and answers every failure with one JSON error shape.
@@ -179,21 +179,21 @@ Clients branch on `code`. The `message` is fixed per code and may change without
 
 ## Acceptance criteria
 
-- [ ] `backend/go.mod` declares `module github.com/Js-Meneses/fullstack-calculator/backend` and `go 1.27.4`, and has no `require` lines.
-- [ ] In `backend/`, `go vet ./...` prints nothing and `gofmt -l .` prints nothing.
-- [ ] In `backend/`, `go test -cover ./internal/calculator/` reports `coverage: 100.0% of statements`.
-- [ ] In `backend/`, `make cover` passes and its `total:` line reports at least 85.0%.
-- [ ] `go test -v ./internal/httpapi/` shows a passing case for every row of the error table, and one success case per operation. The `internal_error` case calls `mapError` directly with an unknown error and asserts status 500 and code `internal_error`.
-- [ ] A test asserts that `{"operation":"multiply","operands":[-1,0]}` returns 200 with the body `{"result":0}`.
-- [ ] A test asserts that `{"operation":"percentage","operands":[50,10]}` returns 200 with `result` `5`.
-- [ ] A test asserts that `{"operation":"power","operands":[-8,0.5]}` returns 422 `undefined_result`.
-- [ ] A test asserts that `{"operation":"power","operands":[0,-1]}` returns 422 `division_by_zero`.
-- [ ] A test asserts that a body of exactly 1024 bytes is processed and a body of 1025 bytes returns 413 `body_too_large`.
-- [ ] A test asserts that `{"operation":"add","operands":[1,null]}` returns 400 `invalid_request`.
-- [ ] A test asserts that an invalid `PORT` such as `abc` or `70000` makes `run` return an error.
-- [ ] From the repository root, `npx @redocly/cli@2.84.0 lint backend/api/openapi.yaml` exits with status 0.
-- [ ] (manual) With `make run` active, `curl.exe -i http://localhost:8080/nope` shows status 404, `Content-Type: application/json` and the `not_found` code.
-- [ ] (manual) With `make run` active, Ctrl+C logs the shutdown line and the process exits.
+- [x] `backend/go.mod` declares `module github.com/Js-Meneses/fullstack-calculator/backend` and `go 1.27.4`, and has no `require` lines.
+- [x] In `backend/`, `go vet ./...` prints nothing and `gofmt -l .` prints nothing.
+- [x] In `backend/`, `go test -cover ./internal/calculator/` reports `coverage: 100.0% of statements`.
+- [x] In `backend/`, `make cover` passes and its `total:` line reports at least 85.0%.
+- [x] `go test -v ./internal/httpapi/` shows a passing case for every row of the error table, and one success case per operation. The `internal_error` case calls `mapError` directly with an unknown error and asserts status 500 and code `internal_error`.
+- [x] A test asserts that `{"operation":"multiply","operands":[-1,0]}` returns 200 with the body `{"result":0}`.
+- [x] A test asserts that `{"operation":"percentage","operands":[50,10]}` returns 200 with `result` `5`.
+- [x] A test asserts that `{"operation":"power","operands":[-8,0.5]}` returns 422 `undefined_result`.
+- [x] A test asserts that `{"operation":"power","operands":[0,-1]}` returns 422 `division_by_zero`.
+- [x] A test asserts that a body of exactly 1024 bytes is processed and a body of 1025 bytes returns 413 `body_too_large`.
+- [x] A test asserts that `{"operation":"add","operands":[1,null]}` returns 400 `invalid_request`.
+- [x] A test asserts that an invalid `PORT` such as `abc` or `70000` makes `run` return an error.
+- [x] From the repository root, `npx @redocly/cli@2.84.0 lint backend/api/openapi.yaml` exits with status 0.
+- [x] (manual) With `make run` active, `curl.exe -i http://localhost:8080/nope` shows status 404, `Content-Type: application/json` and the `not_found` code.
+- [x] (manual) With `make run` active, Ctrl+C logs the shutdown line and the process exits.
 
 ## Decisions
 

@@ -25,3 +25,18 @@
 - Acceptance criterion 5 now covers every row of the error table, with the `internal_error` case checked through a direct call to `mapError`.
 - The `internal_error` decision now says the fallback is covered by a direct test of `mapError` instead of saying no test triggers it.
 - New decision (default, not asked): the mapping is the unexported `mapError`, tested from package `httpapi` so the test can call it.
+
+## 2026-11-26 — /spec-impl 01-backend-rest-api
+
+**Prompt**
+
+> /spec-impl @specs/01-backend-rest-api.md
+
+**Decisions during implementation**
+
+- Step 2: `json.Valid` already rejects trailing data, which the plan placed in step 3; and `.gitattributes` for LF line endings, since `gofmt -l` flags CRLF files on a Windows clone with `core.autocrlf=true`.
+  > Go with (a) for both. Also state in the spec that a body read failure returns 500 internal_error, since the tests now assert it. Commit .gitattributes as its own chore commit, then commit step 2.
+- Step 3: Content-Type matching is case-insensitive and ignores malformed parameters; recorded in the spec's Decisions.
+  > Yes, add the Decisions line, stage it with this step and commit. and continue
+- Close: criterion 15 (Ctrl+C logs the shutdown line and the process exits) was checked by the user; the spec is confirmed done.
+  > Ctrl+C works, yes the spec is done
