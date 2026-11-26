@@ -32,7 +32,7 @@ Full-stack calculator: a Go REST API and a React + TypeScript client that consum
 ## API conventions
 
 - Single endpoint: `POST /api/v1/calculations`, with the operation and operands in the JSON body.
-- Every response is JSON. Errors share one shape with a machine-readable `code` and a human-readable `message`.
+- Every response on an `/api/` path is JSON. Errors share one shape with a machine-readable `code` and a human-readable `message`.
 
 ## Frontend principles
 

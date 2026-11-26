@@ -1,4 +1,5 @@
-// Command server runs the calculator HTTP API.
+// Command server runs the calculator HTTP API and, when STATIC_DIR is set,
+// also serves the built frontend from that directory.
 package main
 
 import (
@@ -13,8 +14,6 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-
-	"github.com/Js-Meneses/fullstack-calculator/backend/internal/httpapi"
 )
 
 const (
@@ -22,7 +21,10 @@ const (
 	shutdownTimeout = 10 * time.Second
 )
 
-var errInvalidPort = errors.New("must be a decimal integer from 1 to 65535")
+var (
+	errInvalidPort      = errors.New("must be a decimal integer from 1 to 65535")
+	errInvalidStaticDir = errors.New("must be an existing directory")
+)
 
 func main() {
 	if err := run(context.Background(), os.LookupEnv); err != nil {
@@ -46,6 +48,11 @@ func run(ctx context.Context, lookupEnv func(string) (string, bool)) (err error)
 		return err
 	}
 
+	dir, err := staticDir(lookupEnv)
+	if err != nil {
+		return err
+	}
+
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -55,7 +62,7 @@ func run(ctx context.Context, lookupEnv func(string) (string, bool)) (err error)
 	}
 
 	srv := &http.Server{
-		Handler:           httpapi.NewHandler(),
+		Handler:           newHandler(dir),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
@@ -64,7 +71,11 @@ func run(ctx context.Context, lookupEnv func(string) (string, bool)) (err error)
 
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- srv.Serve(listener) }()
-	logger.Info("server started", "addr", addr)
+	startAttrs := []any{"addr", addr}
+	if dir != "" {
+		startAttrs = append(startAttrs, "static_dir", dir)
+	}
+	logger.Info("server started", startAttrs...)
 
 	select {
 	case err := <-serveErr:
@@ -95,4 +106,20 @@ func listenAddr(lookupEnv func(string) (string, bool)) (string, error) {
 		return "", fmt.Errorf("invalid PORT %q: %w", port, errInvalidPort)
 	}
 	return ":" + strconv.FormatUint(n, 10), nil
+}
+
+// staticDir returns the directory to serve the frontend from, from the
+// STATIC_DIR variable. Empty or unset means none; a value that is not an
+// existing directory is an error.
+func staticDir(lookupEnv func(string) (string, bool)) (string, error) {
+	dir, _ := lookupEnv("STATIC_DIR")
+	if dir == "" {
+		return "", nil
+	}
+
+	info, err := os.Stat(dir)
+	if err != nil || !info.IsDir() {
+		return "", fmt.Errorf("invalid STATIC_DIR %q: %w", dir, errInvalidStaticDir)
+	}
+	return dir, nil
 }

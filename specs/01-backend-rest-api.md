@@ -99,7 +99,7 @@ Sentinel errors, all exported from `internal/calculator`:
 
 ### Responses
 
-Every response has the header `Content-Type: application/json`.
+Every response on an `/api/` path has the header `Content-Type: application/json`.
 
 Success, status 200:
 
@@ -220,6 +220,7 @@ Clients branch on `code`. The `message` is fixed per code and may change without
 - **Yes:** the timeout and shutdown values in Server configuration. Requests are tiny, so these limits never bind in normal use. (default, not asked)
 - **Yes:** Makefile recipes are plain `go` commands, so they run the same under `sh` and `cmd.exe` with GNU Make on Windows. (default, not asked)
 - **Yes:** a root `.gitattributes` with `* text=auto eol=lf`, committed on its own before step 2. With `core.autocrlf=true`, a Windows clone would otherwise check out CRLF Go files, and `gofmt -l` lists those as unformatted. (asked during implementation)
+- **Yes:** the API behaviour in this spec applies to `/api` and `/api/` paths. SPEC 03 adds optional static file serving on every other path through `STATIC_DIR`. (changed by SPEC 03)
 
 ## Risks
 
