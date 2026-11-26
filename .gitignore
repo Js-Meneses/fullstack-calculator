@@ -1,4 +1,5 @@
-.claude
+.claude/*
+!.claude/skills/
 backend/coverage.out
 backend/coverage.html
 frontend/node_modules
