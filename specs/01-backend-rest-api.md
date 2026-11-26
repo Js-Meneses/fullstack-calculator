@@ -214,6 +214,7 @@ Clients branch on `code`. The `message` is fixed per code and may change without
 - **Yes:** case-insensitive field names and last-wins duplicate keys, as `encoding/json` does. Rejecting them needs a custom decoder for no user benefit. (default, not asked)
 - **Yes:** a 500 `internal_error` fallback for an error the mapping does not know. The only request that reaches it is one whose body cannot be read, so a test in package `httpapi` also passes an unknown error straight to `mapError`. (fallback: default, not asked; test: asked in revision)
 - **Yes:** a failure reading the request body returns 500 `internal_error` through the fallback, and a handler test asserts it. (asked during implementation)
+- **Yes:** check 3 uses `mime.ParseMediaType`. The media type matches case-insensitively (`Application/JSON` is accepted), a malformed parameter such as `application/json; charset` is ignored like any other parameter, and `application/problem+json` is rejected. (asked during implementation)
 - **Yes:** check 5 uses `json.Valid`, which is exactly "one JSON value, optionally surrounded by whitespace". It rejects trailing data as `invalid_json` from step 2, not step 3 as first planned. (asked during implementation)
 - **Yes:** the error mapping is the unexported function `mapError` in `errors.go`, tested from package `httpapi` rather than `httpapi_test` so the test can call it. (default, not asked)
 - **Yes:** the timeout and shutdown values in Server configuration. Requests are tiny, so these limits never bind in normal use. (default, not asked)

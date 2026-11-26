@@ -22,6 +22,8 @@ const (
 	msgOperandCount     = "Wrong number of operands: sqrt takes 1, every other operation takes 2."
 	msgNotFound         = "No resource at this path."
 	msgMethodNotAllowed = "Only POST is allowed on this path."
+	msgBodyTooLarge     = "The request body must not exceed 1024 bytes."
+	msgUnsupportedMedia = "The Content-Type must be application/json."
 	msgDivisionByZero   = "Division by zero is undefined."
 	msgNegativeSqrt     = "The square root of a negative number is not a real number."
 	msgOutOfRange       = "The result is too large to represent."
@@ -31,12 +33,10 @@ const (
 
 const contentTypeJSON = "application/json"
 
-// serve sends one request through the handler and checks the Content-Type
+// send passes one request through the handler and checks the Content-Type
 // header that every response must carry.
-func serve(t *testing.T, method, target string, body io.Reader) *httptest.ResponseRecorder {
+func send(t *testing.T, req *http.Request) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(method, target, body)
-	req.Header.Set("Content-Type", contentTypeJSON)
 	rec := httptest.NewRecorder()
 	httpapi.NewHandler().ServeHTTP(rec, req)
 
@@ -46,9 +46,37 @@ func serve(t *testing.T, method, target string, body io.Reader) *httptest.Respon
 	return rec
 }
 
+// serve sends a request with a JSON Content-Type.
+func serve(t *testing.T, method, target string, body io.Reader) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, target, body)
+	req.Header.Set("Content-Type", contentTypeJSON)
+	return send(t, req)
+}
+
 func post(t *testing.T, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	return serve(t, http.MethodPost, path, strings.NewReader(body))
+}
+
+// postAs sends a POST with the given Content-Type. An empty contentType omits
+// the header.
+func postAs(t *testing.T, contentType, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	return send(t, req)
+}
+
+// padTo appends spaces to a JSON body until it is exactly size bytes long.
+func padTo(t *testing.T, body string, size int) string {
+	t.Helper()
+	if len(body) > size {
+		t.Fatalf("body is %d bytes, longer than %d", len(body), size)
+	}
+	return body + strings.Repeat(" ", size-len(body))
 }
 
 // assertError checks the status and the JSON error body of a response.
@@ -178,6 +206,10 @@ func TestCalculationsInvalidRequest(t *testing.T) {
 		{"operands is a string", `{"operation":"add","operands":"1,2"}`},
 		{"operand is a string", `{"operation":"add","operands":[1,"2"]}`},
 		{"operand is a boolean", `{"operation":"add","operands":[1,true]}`},
+		{"null operand", `{"operation":"add","operands":[1,null]}`},
+		{"only operand is null", `{"operation":"sqrt","operands":[null]}`},
+		{"unknown field", `{"operation":"add","operands":[1,2],"precision":2}`},
+		{"number outside float64 range", `{"operation":"add","operands":[1e400,1]}`},
 	}
 
 	for _, tt := range tests {
@@ -224,6 +256,81 @@ func TestCalculationsMethodNotAllowed(t *testing.T) {
 			assertError(t, rec, http.StatusMethodNotAllowed, "method_not_allowed", msgMethodNotAllowed)
 		})
 	}
+}
+
+func TestCalculationsContentType(t *testing.T) {
+	const body = `{"operation":"add","operands":[2,3]}`
+
+	accepted := []string{
+		"application/json",
+		"application/json; charset=utf-8",
+		"Application/JSON",
+		"application/json; charset", // a malformed parameter is ignored
+	}
+	for _, contentType := range accepted {
+		t.Run("accepts "+contentType, func(t *testing.T) {
+			rec := postAs(t, contentType, body)
+			if rec.Code != http.StatusOK {
+				t.Errorf("status = %d, want %d; body %s", rec.Code, http.StatusOK, rec.Body)
+			}
+		})
+	}
+
+	rejected := []struct {
+		name        string
+		contentType string
+	}{
+		{"missing", ""},
+		{"text/plain", "text/plain"},
+		{"form", "application/x-www-form-urlencoded"},
+		{"JSON suffix", "application/problem+json"},
+		{"unparseable", "application/"},
+	}
+	for _, tt := range rejected {
+		t.Run("rejects "+tt.name, func(t *testing.T) {
+			rec := postAs(t, tt.contentType, body)
+			assertError(t, rec, http.StatusUnsupportedMediaType, "unsupported_media_type", msgUnsupportedMedia)
+		})
+	}
+}
+
+func TestCalculationsBodySize(t *testing.T) {
+	const body = `{"operation":"add","operands":[2,3]}`
+
+	t.Run("1024 bytes are processed", func(t *testing.T) {
+		rec := post(t, padTo(t, body, 1024))
+		if rec.Code != http.StatusOK {
+			t.Errorf("status = %d, want %d; body %s", rec.Code, http.StatusOK, rec.Body)
+		}
+		if got, want := rec.Body.String(), `{"result":5}`; got != want {
+			t.Errorf("body = %s, want %s", got, want)
+		}
+	})
+	t.Run("1024 bytes of invalid JSON are parsed", func(t *testing.T) {
+		rec := post(t, strings.Repeat("x", 1024))
+		assertError(t, rec, http.StatusBadRequest, "invalid_json", msgInvalidJSON)
+	})
+	t.Run("1025 bytes are too large", func(t *testing.T) {
+		rec := post(t, padTo(t, body, 1025))
+		assertError(t, rec, http.StatusRequestEntityTooLarge, "body_too_large", msgBodyTooLarge)
+	})
+	t.Run("size is checked before syntax", func(t *testing.T) {
+		rec := post(t, strings.Repeat("x", 4096))
+		assertError(t, rec, http.StatusRequestEntityTooLarge, "body_too_large", msgBodyTooLarge)
+	})
+}
+
+func TestCalculationsCheckOrder(t *testing.T) {
+	large := strings.Repeat(" ", 2048)
+
+	t.Run("method before content type", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		assertError(t, send(t, req), http.StatusMethodNotAllowed, "method_not_allowed", msgMethodNotAllowed)
+	})
+	t.Run("content type before body size", func(t *testing.T) {
+		rec := postAs(t, "text/plain", large)
+		assertError(t, rec, http.StatusUnsupportedMediaType, "unsupported_media_type", msgUnsupportedMedia)
+	})
 }
 
 // failingReader is a request body whose read always fails.

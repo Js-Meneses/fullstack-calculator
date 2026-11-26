@@ -32,7 +32,7 @@ func serveCalculations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	operation, operands, err := decodeRequest(r.Body)
+	operation, operands, err := decodeRequest(r)
 	if err != nil {
 		writeError(w, err)
 		return

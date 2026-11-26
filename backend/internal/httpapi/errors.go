@@ -9,10 +9,12 @@ import (
 
 // Errors raised by the HTTP layer itself, before the domain is called.
 var (
-	errNotFound         = errors.New("no resource at this path")
-	errMethodNotAllowed = errors.New("method not allowed")
-	errInvalidJSON      = errors.New("body is not a single JSON value")
-	errInvalidRequest   = errors.New("body does not match the request shape")
+	errNotFound             = errors.New("no resource at this path")
+	errMethodNotAllowed     = errors.New("method not allowed")
+	errUnsupportedMediaType = errors.New("content type is not application/json")
+	errBodyTooLarge         = errors.New("body exceeds the size limit")
+	errInvalidJSON          = errors.New("body is not a single JSON value")
+	errInvalidRequest       = errors.New("body does not match the request shape")
 )
 
 // errorResponse is the JSON body of every non-200 response.
@@ -47,6 +49,12 @@ func mapError(err error) (status int, code, message string) {
 	case errors.Is(err, errMethodNotAllowed):
 		return http.StatusMethodNotAllowed, "method_not_allowed",
 			"Only POST is allowed on this path."
+	case errors.Is(err, errBodyTooLarge):
+		return http.StatusRequestEntityTooLarge, "body_too_large",
+			"The request body must not exceed 1024 bytes."
+	case errors.Is(err, errUnsupportedMediaType):
+		return http.StatusUnsupportedMediaType, "unsupported_media_type",
+			"The Content-Type must be application/json."
 	case errors.Is(err, calculator.ErrDivisionByZero):
 		return http.StatusUnprocessableEntity, "division_by_zero",
 			"Division by zero is undefined."
