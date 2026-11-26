@@ -21,6 +21,7 @@ Full-stack calculator: a Go REST API and a React + TypeScript client that consum
         calculator/         # state, formatting and input logic, no components
         components/         # React components with their CSS Modules
     specs/                  # one spec per feature (NN-slug.md)
+    Dockerfile              # one image: API and built frontend
 
 ## Backend principles
 
