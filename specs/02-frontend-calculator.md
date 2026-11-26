@@ -155,6 +155,8 @@ type Action = UserAction | { type: 'response'; id: number; outcome: CalculationO
 
 The initial state is: no accumulator, no operator, input `{ kind: 'entry', text: '0' }`, nothing pending, no error, `nextId` 0.
 
+Every return to the initial state described below (`clear`, a key that recovers from an error, and an `api-error` or `network-error` response) keeps the current `nextId`, so a request id is never reused.
+
 An `entry` holds exactly what the user typed. A `value` holds the full `float64` from the API, never rounded.
 
 The **displayed number** is the entry parsed with `Number(text)`, or the value, or the accumulator when `input` is `null`.
@@ -168,8 +170,8 @@ A **request** sets `pending` to `{ id: nextId, request, followUp }` and incremen
 - A digit replaces an entry of `0`, and turns `-0` into `-` followed by the digit. This is the only leading-zero rule: `0.0` is allowed.
 - The decimal point is ignored when the entry already has one, or already has 12 digits.
 - Backspace removes the last character. An entry that becomes empty or `-` becomes `0`.
-- The longest entries are 14 characters, such as `-0.12345678901` and `-123456789012.`.
-- An entry of 12 digits has at most 12 significant digits, so `formatNumber` shows it in the expression line as typed, minus trailing zeros after the point and a trailing point. A value with more than six leading zeros after the point switches to exponent form: `0.0000001` becomes `1e-7`.
+- The longest entries are 14 characters, such as `-0.12345678901` and `-1234567890.12`.
+- An entry of 12 digits has at most 12 significant digits, so `formatNumber` shows it in the expression line as typed, minus trailing zeros after the point and a trailing point. A value with six or more leading zeros after the point switches to exponent form: `0.0000001` becomes `1e-7`.
 
 ### Transitions
 
@@ -394,6 +396,8 @@ Generated folders are already ignored: the root `.gitignore` lists `frontend/nod
 - **Yes:** `√` and `±` right after an operator use the accumulator as the operand, and the result becomes the second operand. Both apply to the displayed number, as asked for `√`. (default, not asked)
 - **Yes:** an operator right after another replaces it. (default, not asked)
 - **Yes:** requests run in a hook effect keyed on `pending`, and the reducer matches responses by `id`. The reducer stays pure and testable without timers. (default, not asked)
+- **Yes:** a return to the initial state keeps `nextId`. With ids restarting at 0, a late response from before `clear` could match the next request in the reducer, and only the hook's abort check would stop it. (asked during implementation)
+- **Yes:** the longest-entry example is `-1234567890.12`, not `-123456789012.`, which the rule that ignores the point at 12 digits makes impossible to type. The exponent switch happens at six or more leading zeros after the point, as `0.0000001` shows. Both were text errors; behaviour is unchanged. (asked during implementation)
 - **Yes:** pending keys use `aria-disabled`, not `disabled`. A `disabled` button loses focus, which would drop keyboard users to the page body after every `=`. (default, not asked)
 - **Yes:** the server's `message` is not shown. SPEC 01 says it may change without notice; the frontend owns its wording. (default, not asked)
 - **Yes:** `npx -y create-vite@9.4.0` instead of `npm create vite@9.4.0 ... -- ...`. The `npm create` form relies on the `--` separator reaching npm, and PowerShell can consume it when it runs the `npm.ps1` shim. The `npx` form has no separator and was checked to scaffold the `react-ts` template. (default, not asked)
