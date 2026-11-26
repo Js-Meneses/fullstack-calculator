@@ -97,3 +97,14 @@
 - README "Without make" row: the three dotted flags are quoted, and the claim that the commands work the same in PowerShell and POSIX shells applies to the quoted form only. New acceptance criterion checks the quotes.
 - Routing rules: `Content-Type` comes from Go's `mime` package, the listed types hold in the Linux image, and Windows can override them through the registry (`.js` as `application/javascript` on this machine). Step 1's `static_test.go` asserts `Content-Type` only for `index.html`, as `text/html; charset=utf-8`; the `.js` type is left to smoke check 6.
 - The wording criterion uses `git grep -n "Every response"` without `-i`, and expects exactly three lines, one per file, each starting with `Every response on an /api/ path`. The OpenAPI rewording now gives that exact sentence instead of "Scoped to /api and /api/ paths", so the criterion can match it.
+
+## 2026-11-26 — /spec-impl 03-packaging-ci-docs
+
+**Prompt**
+
+> /spec-impl @specs/03-packaging-ci-docs.md
+
+**Decisions during implementation**
+
+- Close: 16 of 21 acceptance criteria were seen passing; the five (manual) ones (browser check and Ctrl+C, the CI run, its coverage summaries and artifacts, README rendering on GitHub) were accepted as pending. The spec is confirmed done.
+  > yes, mark it implemented and commit

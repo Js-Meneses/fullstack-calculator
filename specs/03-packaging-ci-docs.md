@@ -1,6 +1,6 @@
 # SPEC 03 — Packaging, CI and documentation
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 01, SPEC 02
 > **Date:** 2026-11-26
 > **Objective:** One Docker image that serves the API and the built frontend on one port, a GitHub Actions workflow that tests, measures and smoke-tests it, and a README that lets a reviewer run and understand the project.
@@ -243,27 +243,27 @@ The layout block in `AGENTS.md` gains two lines: `.github/workflows/  # CI (ci.y
 
 ## Acceptance criteria
 
-- [ ] In `backend/`, `go vet ./...` and `gofmt -l .` print nothing, `go test -cover ./internal/calculator/` reports `coverage: 100.0% of statements`, and `make cover` reports a `total:` of at least 85.0%.
-- [ ] `go test -v ./cmd/server/` shows passing cases for every row of the routing table, the `..` case, the 301 for `/index.html`, the empty-`staticDir` JSON 404, and `errInvalidStaticDir` for a missing path and for a regular file.
-- [ ] With `STATIC_DIR` unset, `make run` in `backend/` and `curl.exe -i http://localhost:8080/` show 404 with `Content-Type: application/json` and the code `not_found`.
-- [ ] From the repository root, `npx @redocly/cli@2.84.0 lint backend/api/openapi.yaml` exits with status 0.
-- [ ] `git grep -n "Every response" -- AGENTS.md backend/api/openapi.yaml specs/01-backend-rest-api.md` lists exactly three lines, one per file, and each starts its sentence with `Every response on an /api/ path`.
-- [ ] The `FROM` lines of `Dockerfile` name exactly `node:24.16.0-alpine`, `golang:1.27.4-alpine` and `gcr.io/distroless/static-debian13:nonroot`, and the file has no `HEALTHCHECK`.
-- [ ] `.dockerignore` holds exactly the six entries listed in `.dockerignore`.
-- [ ] From the repository root, `docker build -t fullstack-calculator .` succeeds.
-- [ ] `docker image inspect fullstack-calculator --format '{{.Config.User}}'` prints `nonroot:nonroot`, and `docker image inspect fullstack-calculator --format '{{.Size}}'` prints a number below 25000000.
-- [ ] With `docker run --rm -p 8080:8080 fullstack-calculator` running, each request in the smoke-check table returns its expected result.
+- [x] In `backend/`, `go vet ./...` and `gofmt -l .` print nothing, `go test -cover ./internal/calculator/` reports `coverage: 100.0% of statements`, and `make cover` reports a `total:` of at least 85.0%.
+- [x] `go test -v ./cmd/server/` shows passing cases for every row of the routing table, the `..` case, the 301 for `/index.html`, the empty-`staticDir` JSON 404, and `errInvalidStaticDir` for a missing path and for a regular file.
+- [x] With `STATIC_DIR` unset, `make run` in `backend/` and `curl.exe -i http://localhost:8080/` show 404 with `Content-Type: application/json` and the code `not_found`.
+- [x] From the repository root, `npx @redocly/cli@2.84.0 lint backend/api/openapi.yaml` exits with status 0.
+- [x] `git grep -n "Every response" -- AGENTS.md backend/api/openapi.yaml specs/01-backend-rest-api.md` lists exactly three lines, one per file, and each starts its sentence with `Every response on an /api/ path`.
+- [x] The `FROM` lines of `Dockerfile` name exactly `node:24.16.0-alpine`, `golang:1.27.4-alpine` and `gcr.io/distroless/static-debian13:nonroot`, and the file has no `HEALTHCHECK`.
+- [x] `.dockerignore` holds exactly the six entries listed in `.dockerignore`.
+- [x] From the repository root, `docker build -t fullstack-calculator .` succeeds.
+- [x] `docker image inspect fullstack-calculator --format '{{.Config.User}}'` prints `nonroot:nonroot`, and `docker image inspect fullstack-calculator --format '{{.Size}}'` prints a number below 25000000.
+- [x] With `docker run --rm -p 8080:8080 fullstack-calculator` running, each request in the smoke-check table returns its expected result.
 - [ ] (manual) With the container running, `http://localhost:8080` shows the calculator, and clicking `2 + 3 × 4 =` shows `20`. Ctrl+C in the `docker run` window logs the shutdown line and the container exits.
-- [ ] `.github/workflows/ci.yml` triggers on `push` to `main` and on `pull_request`, sets `contents: read`, and its `uses:` lines name only `actions/checkout@v7`, `actions/setup-go@v7`, `actions/setup-node@v7` and `actions/upload-artifact@v7`.
+- [x] `.github/workflows/ci.yml` triggers on `push` to `main` and on `pull_request`, sets `contents: read`, and its `uses:` lines name only `actions/checkout@v7`, `actions/setup-go@v7`, `actions/setup-node@v7` and `actions/upload-artifact@v7`.
 - [ ] (manual) After the user pushes the branch and opens its pull request, the `CI` run shows the jobs `backend`, `frontend` and `docker` passing.
 - [ ] (manual) That run's `backend` summary shows the `Backend coverage` table with `internal/calculator` at 100.0% and the total at 85.0% or more, and its `frontend` summary shows the `Frontend coverage` table with four rows at 85% or more.
 - [ ] (manual) That run lists the artifacts `backend-coverage` and `frontend-coverage`.
-- [ ] `README.md` has the headings of the README table in that order, and its only image is the CI badge.
-- [ ] The `Without make` table in `README.md` shows `"-coverprofile=coverage.out"`, `"-func=coverage.out"` and `"-html=coverage.out"` in double quotes.
-- [ ] Every relative link target in `README.md` is listed by `git ls-files`.
+- [x] `README.md` has the headings of the README table in that order, and its only image is the CI badge.
+- [x] The `Without make` table in `README.md` shows `"-coverprofile=coverage.out"`, `"-func=coverage.out"` and `"-html=coverage.out"` in double quotes.
+- [x] Every relative link target in `README.md` is listed by `git ls-files`.
 - [ ] (manual) After the push, `README.md` renders on GitHub and the badge shows the status of `CI`.
-- [ ] Each curl example in `README.md`, run against the container, prints the response shown under it.
-- [ ] The branch adds no binary file: `git diff --name-only main` lists only files named in the implementation plan, plus the spec and `PROMPTS.md`.
+- [x] Each curl example in `README.md`, run against the container, prints the response shown under it.
+- [x] The branch adds no binary file: `git diff --name-only main` lists only files named in the implementation plan, plus the spec and `PROMPTS.md`.
 
 ## Decisions
 
