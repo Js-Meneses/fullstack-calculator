@@ -1,0 +1,233 @@
+openapi: 3.1.0
+info:
+  title: Calculator API
+  version: 1.0.0
+  description: |
+    Computes one calculator operation per request.
+
+    Every response is JSON with the header `Content-Type: application/json`.
+    Errors share one shape: clients branch on `error.code`; `error.message` is
+    fixed per code and may change without notice.
+
+    Any path other than `/api/v1/calculations` (including a trailing slash or a
+    different case) returns `404` with code `not_found`, whatever the method.
+    The query string is ignored.
+
+        {"error":{"code":"not_found","message":"No resource at this path."}}
+
+    Checks run in this order, and the first one that fails decides the response:
+    path (404), method (405), `Content-Type` (415), body size of at most 1024
+    bytes (413), JSON syntax (400 `invalid_json`), request shape
+    (400 `invalid_request`), then the operation itself (400 or 422).
+servers:
+  - url: http://localhost:8080
+security: []
+paths:
+  /api/v1/calculations:
+    post:
+      operationId: createCalculation
+      summary: Compute one operation
+      description: |
+        Applies `operation` to `operands` and returns the raw `float64` result.
+        A result of `-0` is returned as `0`. A result that would be NaN or
+        infinite is never returned: it is a 422 error instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculationRequest'
+            examples:
+              add:
+                summary: 2 + 3
+                value:
+                  operation: add
+                  operands: [2, 3]
+              sqrt:
+                summary: Square root of 9
+                value:
+                  operation: sqrt
+                  operands: [9]
+              percentage:
+                summary: 50% of 10
+                value:
+                  operation: percentage
+                  operands: [50, 10]
+      responses:
+        '200':
+          description: The result of the operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculationResult'
+              example:
+                result: 5
+        '400':
+          description: |
+            The body is not valid JSON (`invalid_json`), does not match the
+            request shape (`invalid_request`), names an unknown operation
+            (`unknown_operation`) or has the wrong number of operands
+            (`invalid_operand_count`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_json:
+                  value:
+                    error:
+                      code: invalid_json
+                      message: The request body must be a single valid JSON value.
+                invalid_request:
+                  value:
+                    error:
+                      code: invalid_request
+                      message: The request body must be an object with a string "operation" and an array of numbers "operands".
+                unknown_operation:
+                  value:
+                    error:
+                      code: unknown_operation
+                      message: 'Unknown operation. Use one of: add, subtract, multiply, divide, power, sqrt, percentage.'
+                invalid_operand_count:
+                  value:
+                    error:
+                      code: invalid_operand_count
+                      message: 'Wrong number of operands: sqrt takes 1, every other operation takes 2.'
+        '405':
+          description: The method is not `POST`.
+          headers:
+            Allow:
+              description: The only allowed method.
+              schema:
+                type: string
+                const: POST
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: method_not_allowed
+                  message: Only POST is allowed on this path.
+        '413':
+          description: The body is larger than 1024 bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: body_too_large
+                  message: The request body must not exceed 1024 bytes.
+        '415':
+          description: The `Content-Type` is missing or is not `application/json`. Parameters such as `charset` are ignored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: unsupported_media_type
+                  message: The Content-Type must be application/json.
+        '422':
+          description: |
+            The request is well-formed but the operation has no finite real
+            result: division by zero (also zero to a negative power), the square
+            root of a negative number, a result too large for `float64`, or a
+            result that is not a real number.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                division_by_zero:
+                  value:
+                    error:
+                      code: division_by_zero
+                      message: Division by zero is undefined.
+                negative_square_root:
+                  value:
+                    error:
+                      code: negative_square_root
+                      message: The square root of a negative number is not a real number.
+                result_out_of_range:
+                  value:
+                    error:
+                      code: result_out_of_range
+                      message: The result is too large to represent.
+                undefined_result:
+                  value:
+                    error:
+                      code: undefined_result
+                      message: The result is not a real number.
+        '500':
+          description: An unexpected error, such as a failure reading the request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: internal_error
+                  message: Internal server error.
+components:
+  schemas:
+    CalculationRequest:
+      type: object
+      required: [operation, operands]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          description: |
+            Case-sensitive. The server answers an unlisted value with 400
+            `unknown_operation`.
+          enum: [add, subtract, multiply, divide, power, sqrt, percentage]
+        operands:
+          type: array
+          description: |
+            `sqrt` takes 1 operand; every other operation takes 2. The server
+            answers another count with 400 `invalid_operand_count`.
+            `percentage` computes `a * b / 100` (a% of b).
+          minItems: 1
+          maxItems: 2
+          items:
+            type: number
+    CalculationResult:
+      type: object
+      required: [result]
+      additionalProperties: false
+      properties:
+        result:
+          type: number
+          description: The raw `float64` result, never NaN, infinite or `-0`.
+    Error:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              description: Machine-readable. Clients branch on this value.
+              enum:
+                - invalid_json
+                - invalid_request
+                - unknown_operation
+                - invalid_operand_count
+                - not_found
+                - method_not_allowed
+                - body_too_large
+                - unsupported_media_type
+                - division_by_zero
+                - negative_square_root
+                - result_out_of_range
+                - undefined_result
+                - internal_error
+            message:
+              type: string
+              description: Human-readable. Fixed per code; may change without notice.
