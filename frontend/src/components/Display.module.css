@@ -1,0 +1,48 @@
+.display {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: #111827;
+  color: #f9fafb;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Keeps its height when empty, so the layout does not move. */
+.expression {
+  min-height: 1.5rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  color: #d1d5db;
+  white-space: nowrap;
+}
+
+.main {
+  display: flex;
+  min-height: 3rem;
+  align-items: flex-end;
+  justify-content: flex-end;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Up to 12 characters. */
+.large {
+  font-size: 2.125rem;
+  line-height: 3rem;
+}
+
+/* Fits 19 characters on one line at a 320px viewport. */
+.small {
+  font-size: 1.25rem;
+  line-height: 3rem;
+}
+
+/* An error message may wrap to two lines. */
+.error {
+  font-size: 1.25rem;
+  line-height: 1.5rem;
+  color: #fecaca;
+  white-space: normal;
+}
