@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { Calculator } from './Calculator'
@@ -215,5 +215,104 @@ describe('Calculator', () => {
 
     expect(key('Equals')).not.toHaveAttribute('aria-pressed')
     expect(key('7')).not.toHaveAttribute('aria-pressed')
+  })
+})
+
+describe('Calculator keyboard', () => {
+  // Types each character, waiting for any request to finish.
+  async function type(user: UserEvent, text: string) {
+    for (const character of text) {
+      await user.keyboard(character)
+      await waitFor(() => expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'false'))
+    }
+  }
+
+  it('calculates 12+3= typed on the keyboard', async () => {
+    const fetchMock = answerWith(15)
+    const user = setup()
+
+    await type(user, '12+3=')
+
+    expect(requests(fetchMock)).toEqual([{ operation: 'add', operands: [12, 3] }])
+    expect(display()).toBe('15')
+  })
+
+  it('treats Enter as equals when a key has focus, without clicking it', async () => {
+    const fetchMock = answerWith(5)
+    const user = setup()
+
+    await click(user, '2', 'Add', '3')
+    key('7').focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(display()).toBe('5'))
+
+    expect(requests(fetchMock)).toEqual([{ operation: 'add', operands: [2, 3] }])
+    expect(display()).not.toContain('7')
+  })
+
+  it('does not click the focused key on Enter when equals is ignored', async () => {
+    const user = setup()
+
+    key('7').focus()
+    await user.keyboard('{Enter}')
+
+    expect(display()).toBe('0')
+  })
+
+  it('lets Space activate the focused key', async () => {
+    const user = setup()
+
+    key('7').focus()
+    await user.keyboard(' ')
+
+    expect(display()).toBe('7')
+  })
+
+  it('clears and aborts a pending request on Escape', async () => {
+    const fetchMock = stubFetch(() => new Promise<Response>(() => {}))
+    const user = setup()
+
+    await user.keyboard('2+3=')
+    expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'true')
+
+    await user.keyboard('{Escape}')
+
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true)
+    expect(display()).toBe('0')
+    expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'false')
+  })
+
+  it('ignores Control+r', async () => {
+    const fetchMock = answerWith(3)
+    const user = setup()
+
+    await user.keyboard('9{Control>}r{/Control}')
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(display()).toBe('9')
+  })
+
+  it('accepts a key typed with AltGr, which Windows reports as Ctrl+Alt', () => {
+    setup()
+
+    fireEvent.keyDown(window, { key: '7', ctrlKey: true, altKey: true, modifierAltGraph: true })
+
+    expect(display()).toBe('7')
+  })
+
+  it('handles auto-repeat like any other keydown', async () => {
+    const user = setup()
+
+    await user.keyboard('{5>3/}')
+
+    expect(display()).toBe('555')
+  })
+
+  it('maps Backspace and Delete to backspace', async () => {
+    const user = setup()
+
+    await user.keyboard('123{Backspace}{Delete}')
+
+    expect(display()).toBe('1')
   })
 })
