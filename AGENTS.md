@@ -10,6 +10,7 @@ Full-stack calculator: a Go REST API and a React + TypeScript client that consum
 
 ## Repository layout
 
+    .github/workflows/      # CI (ci.yml)
     backend/
       api/                  # OpenAPI 3.1 description (openapi.yaml)
       cmd/server/           # main: wiring and startup only
