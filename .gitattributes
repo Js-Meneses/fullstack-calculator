@@ -1,0 +1,3 @@
+# Check out every text file with LF line endings, whatever core.autocrlf says.
+# gofmt reports CRLF Go files as unformatted.
+* text=auto eol=lf

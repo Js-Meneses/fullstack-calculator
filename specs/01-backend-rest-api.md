@@ -1,6 +1,6 @@
 # SPEC 01 — Backend REST API
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** None
 > **Date:** 2026-11-26
 > **Objective:** A Go service that computes the seven calculator operations through `POST /api/v1/calculations` and answers every failure with one JSON error shape.
@@ -44,7 +44,7 @@ Checks run in this order. The first one that fails decides the response.
 | 6     | That value matches the request shape below.                                       | 400 `invalid_request`                |
 | 7     | The domain accepts the operation and its operands.                                | 400 or 422, see the error table      |
 
-A body of exactly 1024 bytes is processed. A body of 1025 bytes or more returns 413, whatever its content. A missing `Content-Type` returns 415. `application/json; charset=utf-8` is accepted.
+A body of exactly 1024 bytes is processed. A body of 1025 bytes or more returns 413, whatever its content. A missing `Content-Type` returns 415. `application/json; charset=utf-8` is accepted. If reading the body fails (for example, the client drops the connection), the response is 500 `internal_error`.
 
 ### Request
 
@@ -125,7 +125,7 @@ Clients branch on `code`. The `message` is fixed per code and may change without
 | 422    | `negative_square_root`   | `ErrNegativeSquareRoot`                          | `The square root of a negative number is not a real number.`                                           |
 | 422    | `result_out_of_range`    | `ErrOutOfRange`                                  | `The result is too large to represent.`                                                                |
 | 422    | `undefined_result`       | `ErrUndefinedResult`                             | `The result is not a real number.`                                                                     |
-| 500    | `internal_error`         | Any error the mapping does not know              | `Internal server error.`                                                                               |
+| 500    | `internal_error`         | Any error the mapping does not know, such as a failure reading the body | `Internal server error.`                                                                |
 
 ### Server configuration
 
@@ -160,11 +160,11 @@ Clients branch on `code`. The `message` is fixed per code and may change without
    - Files: `backend/go.mod`, `backend/internal/calculator/calculator.go`, `backend/internal/calculator/calculator_test.go`, `backend/Makefile`
    - Verify: in `backend/`, `make test` passes and `go test -cover ./internal/calculator/` prints `coverage: 100.0% of statements`.
    - Commit: `feat(calculator): add operations and sentinel errors`
-2. **Calculations endpoint.** Add `httpapi.NewHandler() http.Handler` with routing checks 1 and 2, decoding with `encoding/json`, the request shape rules for missing fields and wrong types, the call to `Calculate`, the success response and every row of the error table except 413 and 415. The error table's domain rows and its 500 fallback live in one unexported function in `errors.go`, `mapError(err error) (status int, code, message string)`. `httptest` tests cover a success per operation, `-0` returned as `0`, every domain error code, `invalid_json` for empty and malformed bodies, `invalid_request` for missing fields and wrong types, 404 and 405 with `Allow: POST`, and the `Content-Type` header on every response. A test in `errors_test.go`, in package `httpapi`, passes an unknown error (`errors.New("unexpected")`) to `mapError` and asserts status 500 and code `internal_error`.
+2. **Calculations endpoint.** Add `httpapi.NewHandler() http.Handler` with routing checks 1 and 2, check 5 with `json.Valid` (which also rejects trailing data), decoding with `encoding/json`, the request shape rules for missing fields and wrong types, the call to `Calculate`, the success response and every row of the error table except 413 and 415. The error table's domain rows and its 500 fallback live in one unexported function in `errors.go`, `mapError(err error) (status int, code, message string)`. `httptest` tests cover a success per operation, `-0` returned as `0`, every domain error code, `invalid_json` for empty, malformed and trailing-data bodies, `invalid_request` for missing fields and wrong types, 404 and 405 with `Allow: POST`, a body read failure returning 500 `internal_error`, and the `Content-Type` header on every response. A test in `errors_test.go`, in package `httpapi`, passes an unknown error (`errors.New("unexpected")`) to `mapError` and asserts status 500 and code `internal_error`.
    - Files: `backend/internal/httpapi/handler.go`, `backend/internal/httpapi/request.go`, `backend/internal/httpapi/errors.go`, `backend/internal/httpapi/handler_test.go`, `backend/internal/httpapi/errors_test.go`
    - Verify: in `backend/`, `go test ./internal/httpapi/` passes.
    - Commit: `feat(httpapi): add calculations endpoint and error mapping`
-3. **Strict request checks.** Add routing checks 3 and 4 with their two error rows, and the rejection of trailing data, unknown fields and `null` operand elements. Tests cover a missing and a wrong `Content-Type`, `application/json; charset=utf-8` accepted, bodies of 1024 and 1025 bytes, trailing data, an unknown field, `[1, null]`, `"operands": null` and `1e400`.
+3. **Strict request checks.** Add routing checks 3 and 4 with their two error rows, and the rejection of unknown fields and `null` operand elements. Tests cover a missing and a wrong `Content-Type`, `application/json; charset=utf-8` accepted, bodies of 1024 and 1025 bytes, an unknown field, `[1, null]`, `"operands": null` and `1e400`.
    - Files: `backend/internal/httpapi/request.go`, `backend/internal/httpapi/errors.go`, `backend/internal/httpapi/handler_test.go`
    - Verify: in `backend/`, `go test -cover ./internal/httpapi/` passes with at least 85% coverage.
    - Commit: `feat(httpapi): enforce content type, body size and strict JSON`
@@ -179,21 +179,21 @@ Clients branch on `code`. The `message` is fixed per code and may change without
 
 ## Acceptance criteria
 
-- [ ] `backend/go.mod` declares `module github.com/Js-Meneses/fullstack-calculator/backend` and `go 1.27.4`, and has no `require` lines.
-- [ ] In `backend/`, `go vet ./...` prints nothing and `gofmt -l .` prints nothing.
-- [ ] In `backend/`, `go test -cover ./internal/calculator/` reports `coverage: 100.0% of statements`.
-- [ ] In `backend/`, `make cover` passes and its `total:` line reports at least 85.0%.
-- [ ] `go test -v ./internal/httpapi/` shows a passing case for every row of the error table, and one success case per operation. The `internal_error` case calls `mapError` directly with an unknown error and asserts status 500 and code `internal_error`.
-- [ ] A test asserts that `{"operation":"multiply","operands":[-1,0]}` returns 200 with the body `{"result":0}`.
-- [ ] A test asserts that `{"operation":"percentage","operands":[50,10]}` returns 200 with `result` `5`.
-- [ ] A test asserts that `{"operation":"power","operands":[-8,0.5]}` returns 422 `undefined_result`.
-- [ ] A test asserts that `{"operation":"power","operands":[0,-1]}` returns 422 `division_by_zero`.
-- [ ] A test asserts that a body of exactly 1024 bytes is processed and a body of 1025 bytes returns 413 `body_too_large`.
-- [ ] A test asserts that `{"operation":"add","operands":[1,null]}` returns 400 `invalid_request`.
-- [ ] A test asserts that an invalid `PORT` such as `abc` or `70000` makes `run` return an error.
-- [ ] From the repository root, `npx @redocly/cli@2.84.0 lint backend/api/openapi.yaml` exits with status 0.
-- [ ] (manual) With `make run` active, `curl.exe -i http://localhost:8080/nope` shows status 404, `Content-Type: application/json` and the `not_found` code.
-- [ ] (manual) With `make run` active, Ctrl+C logs the shutdown line and the process exits.
+- [x] `backend/go.mod` declares `module github.com/Js-Meneses/fullstack-calculator/backend` and `go 1.27.4`, and has no `require` lines.
+- [x] In `backend/`, `go vet ./...` prints nothing and `gofmt -l .` prints nothing.
+- [x] In `backend/`, `go test -cover ./internal/calculator/` reports `coverage: 100.0% of statements`.
+- [x] In `backend/`, `make cover` passes and its `total:` line reports at least 85.0%.
+- [x] `go test -v ./internal/httpapi/` shows a passing case for every row of the error table, and one success case per operation. The `internal_error` case calls `mapError` directly with an unknown error and asserts status 500 and code `internal_error`.
+- [x] A test asserts that `{"operation":"multiply","operands":[-1,0]}` returns 200 with the body `{"result":0}`.
+- [x] A test asserts that `{"operation":"percentage","operands":[50,10]}` returns 200 with `result` `5`.
+- [x] A test asserts that `{"operation":"power","operands":[-8,0.5]}` returns 422 `undefined_result`.
+- [x] A test asserts that `{"operation":"power","operands":[0,-1]}` returns 422 `division_by_zero`.
+- [x] A test asserts that a body of exactly 1024 bytes is processed and a body of 1025 bytes returns 413 `body_too_large`.
+- [x] A test asserts that `{"operation":"add","operands":[1,null]}` returns 400 `invalid_request`.
+- [x] A test asserts that an invalid `PORT` such as `abc` or `70000` makes `run` return an error.
+- [x] From the repository root, `npx @redocly/cli@2.84.0 lint backend/api/openapi.yaml` exits with status 0.
+- [x] (manual) With `make run` active, `curl.exe -i http://localhost:8080/nope` shows status 404, `Content-Type: application/json` and the `not_found` code.
+- [x] (manual) With `make run` active, Ctrl+C logs the shutdown line and the process exits.
 
 ## Decisions
 
@@ -212,10 +212,14 @@ Clients branch on `code`. The `message` is fixed per code and may change without
 - **Yes:** the body is read in full, up to 1025 bytes, before parsing. The 413 then wins over a syntax error in the same body, so the result does not depend on where the error sits. (default, not asked)
 - **Yes:** one handler that compares the path exactly, not `http.ServeMux`. `ServeMux` answers unclean paths with a plain-text redirect and method mismatches with a plain-text 405. (default, not asked)
 - **Yes:** case-insensitive field names and last-wins duplicate keys, as `encoding/json` does. Rejecting them needs a custom decoder for no user benefit. (default, not asked)
-- **Yes:** a 500 `internal_error` fallback for an error the mapping does not know. No request can reach it while every sentinel is mapped, so a test in package `httpapi` passes an unknown error straight to `mapError`. (fallback: default, not asked; test: asked in revision)
+- **Yes:** a 500 `internal_error` fallback for an error the mapping does not know. The only request that reaches it is one whose body cannot be read, so a test in package `httpapi` also passes an unknown error straight to `mapError`. (fallback: default, not asked; test: asked in revision)
+- **Yes:** a failure reading the request body returns 500 `internal_error` through the fallback, and a handler test asserts it. (asked during implementation)
+- **Yes:** check 3 uses `mime.ParseMediaType`. The media type matches case-insensitively (`Application/JSON` is accepted), a malformed parameter such as `application/json; charset` is ignored like any other parameter, and `application/problem+json` is rejected. (asked during implementation)
+- **Yes:** check 5 uses `json.Valid`, which is exactly "one JSON value, optionally surrounded by whitespace". It rejects trailing data as `invalid_json` from step 2, not step 3 as first planned. (asked during implementation)
 - **Yes:** the error mapping is the unexported function `mapError` in `errors.go`, tested from package `httpapi` rather than `httpapi_test` so the test can call it. (default, not asked)
 - **Yes:** the timeout and shutdown values in Server configuration. Requests are tiny, so these limits never bind in normal use. (default, not asked)
 - **Yes:** Makefile recipes are plain `go` commands, so they run the same under `sh` and `cmd.exe` with GNU Make on Windows. (default, not asked)
+- **Yes:** a root `.gitattributes` with `* text=auto eol=lf`, committed on its own before step 2. With `core.autocrlf=true`, a Windows clone would otherwise check out CRLF Go files, and `gofmt -l` lists those as unformatted. (asked during implementation)
 
 ## Risks
 
