@@ -1,6 +1,6 @@
 # SPEC 02 — Frontend calculator
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** SPEC 01
 > **Date:** 2026-11-26
 > **Objective:** A React + TypeScript pocket calculator in `frontend/` that gets every result from `POST /api/v1/calculations` and works with mouse, touch and keyboard.
@@ -77,7 +77,7 @@ The promise never rejects. The first matching row decides the outcome:
 | 5     | Status other than 200 and the body is `{"error":{"code": ...}}` with a code from `ApiErrorCode`. | `api-error` with that `code` |
 | 6     | Anything else: a body that is not JSON, JSON of another shape, or an unknown code.           | `network-error`               |
 
-Row 6 covers the Vite proxy's plain-text 500 when the backend is not running. The server's `message` is not used: the frontend has its own messages.
+Row 6 covers the Vite proxy's 502 when the backend is not running. The server's `message` is not used: the frontend has its own messages.
 
 ### Error messages
 
@@ -356,27 +356,27 @@ Generated folders are already ignored: the root `.gitignore` lists `frontend/nod
 
 ## Acceptance criteria
 
-- [ ] `frontend/package.json` has only `react` and `react-dom` in `dependencies`, and the test packages from Tooling at their listed versions in `devDependencies`.
-- [ ] In `frontend/`, `npm run lint` exits with status 0 and prints no warning or error.
-- [ ] In `frontend/`, `npm run build` exits with status 0.
-- [ ] In `frontend/`, `npm run coverage` passes with thresholds of 85 for statements, branches, functions and lines set in `vite.config.ts`.
-- [ ] `git grep -n "fetch(" -- frontend/src ":!*.test.*"` lists only `frontend/src/api/client.ts`.
-- [ ] A client test asserts that a `fetch` that never answers resolves to `network-error` after 10 s of fake time, and that aborting the caller's signal resolves to `aborted`.
-- [ ] A client test asserts that a status 500 with the plain-text body `Internal Server Error` resolves to `network-error`.
-- [ ] A component test clicks `2 + 3 × 4 =` and asserts exactly two requests, `add [2,3]` then `multiply [5,4]`, and the display `20`.
-- [ ] A component test clicks `10 % 200 =` and asserts one request, `percentage [10,200]`, and the display `20`.
-- [ ] A component test clicks `9 √` and asserts the request `sqrt [9]` is sent before any operator or equals.
-- [ ] A component test answers `0.1 + 0.2 =` with `0.30000000000000004`, asserts the display `0.3`, then clicks `× 1 0 =` and asserts the request `multiply [0.30000000000000004,10]`.
-- [ ] A component test clicks thirteen digits and asserts that the display shows the first twelve.
-- [ ] A component test clicks `1 ÷ 0 =`, answers 422 `division_by_zero`, asserts `Cannot divide by zero`, then clicks `7` and asserts the display `7`.
-- [ ] A component test makes `fetch` reject and asserts `Cannot reach the server, try again`.
-- [ ] A component test holds a response, asserts that clicking `5` changes nothing, clicks `C`, asserts that the request's signal is aborted and the display shows `0`.
-- [ ] A component test clicks `2 + 3`, focuses the `7` key and presses `Enter`: the request `add [2,3]` is sent, the display shows `5`, and no `7` is entered. A second test focuses the `7` key from the initial state and presses Space: the display shows `7`.
-- [ ] A component test presses `Control+r` and asserts that no request is sent.
-- [ ] (manual) With `make run` in `backend/` and `npm run dev` in `frontend/`, clicking `2 + 3 × 4 =` shows `20`, and the browser's network panel shows two `POST /api/v1/calculations` requests.
-- [ ] (manual) With the backend stopped, clicking `1 + 1 =` shows `Cannot reach the server, try again`.
-- [ ] (manual) At a viewport of 320px wide, there is no horizontal scroll and all 22 keys are visible. Clicking `2 xʸ 1 0 0 0 ± = ±` shows `-9.33263618503e-302` on one line.
-- [ ] (manual) Tab moves focus through every key with a visible outline.
+- [x] `frontend/package.json` has only `react` and `react-dom` in `dependencies`, and the test packages from Tooling at their listed versions in `devDependencies`.
+- [x] In `frontend/`, `npm run lint` exits with status 0 and prints no warning or error.
+- [x] In `frontend/`, `npm run build` exits with status 0.
+- [x] In `frontend/`, `npm run coverage` passes with thresholds of 85 for statements, branches, functions and lines set in `vite.config.ts`.
+- [x] `git grep -n "fetch(" -- frontend/src ":!*.test.*"` lists only `frontend/src/api/client.ts`.
+- [x] A client test asserts that a `fetch` that never answers resolves to `network-error` after 10 s of fake time, and that aborting the caller's signal resolves to `aborted`.
+- [x] A client test asserts that a status 500 with the plain-text body `Internal Server Error` resolves to `network-error`.
+- [x] A component test clicks `2 + 3 × 4 =` and asserts exactly two requests, `add [2,3]` then `multiply [5,4]`, and the display `20`.
+- [x] A component test clicks `10 % 200 =` and asserts one request, `percentage [10,200]`, and the display `20`.
+- [x] A component test clicks `9 √` and asserts the request `sqrt [9]` is sent before any operator or equals.
+- [x] A component test answers `0.1 + 0.2 =` with `0.30000000000000004`, asserts the display `0.3`, then clicks `× 1 0 =` and asserts the request `multiply [0.30000000000000004,10]`.
+- [x] A component test clicks thirteen digits and asserts that the display shows the first twelve.
+- [x] A component test clicks `1 ÷ 0 =`, answers 422 `division_by_zero`, asserts `Cannot divide by zero`, then clicks `7` and asserts the display `7`.
+- [x] A component test makes `fetch` reject and asserts `Cannot reach the server, try again`.
+- [x] A component test holds a response, asserts that clicking `5` changes nothing, clicks `C`, asserts that the request's signal is aborted and the display shows `0`.
+- [x] A component test clicks `2 + 3`, focuses the `7` key and presses `Enter`: the request `add [2,3]` is sent, the display shows `5`, and no `7` is entered. A second test focuses the `7` key from the initial state and presses Space: the display shows `7`.
+- [x] A component test presses `Control+r` and asserts that no request is sent.
+- [x] (manual) With `make run` in `backend/` and `npm run dev` in `frontend/`, clicking `2 + 3 × 4 =` shows `20`, and the browser's network panel shows two `POST /api/v1/calculations` requests.
+- [x] (manual) With the backend stopped, clicking `1 + 1 =` shows `Cannot reach the server, try again`.
+- [x] (manual) At a viewport of 320px wide, there is no horizontal scroll and all 22 keys are visible. Clicking `2 xʸ 1 0 0 0 ± = ±` shows `-9.33263618503e-302` on one line.
+- [x] (manual) Tab moves focus through every key with a visible outline.
 
 ## Decisions
 
@@ -390,7 +390,7 @@ Generated folders are already ignored: the root `.gitignore` lists `frontend/nod
 - **Yes:** plain results with `.` as decimal point, no grouping, and exponent form from `toPrecision(12)`. (asked)
 - **Yes:** an expression line such as `12 ×` and `aria-pressed` on the pending operator key. Without them, pressing an operator changes nothing visible. (asked)
 - **Yes:** oxlint with the template's `.oxlintrc.json`. create-vite 9.4.0 ships oxlint, not ESLint, and the request is to keep the template's linter. (default, not asked)
-- **Yes:** malformed responses and unknown error codes are `network-error`. The Vite proxy answers with a plain-text 500 when the backend is down, and the user should see the network message then. (default, not asked)
+- **Yes:** malformed responses and unknown error codes are `network-error`. The Vite proxy answers with a 502 when the backend is down, and the user should see the network message then. (default, not asked)
 - **Yes:** the client's 10 s timeout uses `setTimeout` and its own `AbortController`, not `AbortSignal.timeout`, so tests can drive it with Vitest fake timers. (default, not asked)
 - **Yes:** every digit counts towards the 12-digit limit, including the `0` in `0.5`. It bounds the entry at 14 characters. (default, not asked)
 - **Yes:** `√` and `±` right after an operator use the accumulator as the operand, and the result becomes the second operand. Both apply to the displayed number, as asked for `√`. (default, not asked)
@@ -398,6 +398,7 @@ Generated folders are already ignored: the root `.gitignore` lists `frontend/nod
 - **Yes:** requests run in a hook effect keyed on `pending`, and the reducer matches responses by `id`. The reducer stays pure and testable without timers. (default, not asked)
 - **Yes:** a return to the initial state keeps `nextId`. With ids restarting at 0, a late response from before `clear` could match the next request in the reducer, and only the hook's abort check would stop it. (asked during implementation)
 - **Yes:** the longest-entry example is `-1234567890.12`, not `-123456789012.`, which the rule that ignores the point at 12 digits makes impossible to type. The exponent switch happens at six or more leading zeros after the point, as `0.0000001` shows. Both were text errors; behaviour is unchanged. (asked during implementation)
+- **Yes:** with the backend down, the Vite proxy answers 502, not a plain-text 500, and StrictMode runs effects twice only on mount, not on every step. Both were seen in the browser during the acceptance check; the text was corrected and behaviour is unchanged. (asked during implementation)
 - **Yes:** pending keys use `aria-disabled`, not `disabled`. A `disabled` button loses focus, which would drop keyboard users to the page body after every `=`. (default, not asked)
 - **Yes:** the server's `message` is not shown. SPEC 01 says it may change without notice; the frontend owns its wording. (default, not asked)
 - **Yes:** `npx -y create-vite@9.4.0` instead of `npm create vite@9.4.0 ... -- ...`. The `npm create` form relies on the `--` separator reaching npm, and PowerShell can consume it when it runs the `npm.ps1` shim. The `npx` form has no separator and was checked to scaffold the `react-ts` template. (default, not asked)
@@ -409,7 +410,7 @@ Generated folders are already ignored: the root `.gitignore` lists `frontend/nod
 
 | Risk                                                                                                   | Mitigation                                                                                                               |
 | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| In development, React StrictMode runs effects twice, so each step starts a request and aborts it at once. | The hook ignores aborted outcomes, so the display is right. Production builds send one request per step. Component tests render without StrictMode and assert one request. |
+| In development, React StrictMode runs effects twice when a component mounts. | Nothing is pending at mount, so no request is sent twice; each step sends one request in development too. Were an effect to run twice, the hook ignores aborted outcomes. Component tests render without StrictMode and assert one request. |
 | jsdom has no layout, so the 320px and one-line display rules cannot be tested automatically.          | Two manual criteria check them in a real browser.                                                                        |
 | `^` is a dead key on some layouts.                                                                      | `p` is a second shortcut for power.                                                                                      |
 | AltGr reports Ctrl and Alt as held on Windows.                                                          | The modifier rule makes an exception for `AltGraph`.                                                                     |

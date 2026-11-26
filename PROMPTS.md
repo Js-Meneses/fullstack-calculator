@@ -56,3 +56,18 @@
 5. **Which extra keys should also work?** → % → percentage (Recommended), = → equals (Recommended), Delete → backspace, . and , → decimal point (Recommended)
 6. **Display format for rounded results?** → Plain, e-notation (Recommended)
 7. **Show the pending operation above the number and highlight the operator key?** → Both (Recommended)
+
+## 2026-11-26 — /spec-impl 02-frontend-calculator
+
+**Prompt**
+
+> /spec-impl @specs/02-frontend-calculator.md
+
+**Decisions during implementation**
+
+- Step 3: returning to the initial state (`clear`, error recovery, an error response) would reset `nextId` to 0, so a late response could match the next request in the reducer.
+  > Keep nextId (Recommended)
+- Step 3: the longest-entry example `-123456789012.` contradicts the rule that ignores the point at 12 digits, and "more than six leading zeros" contradicts the `0.0000001` example.
+  > Fix the example (Recommended); Say "six or more" (Recommended)
+- Close: the acceptance check showed that the Vite proxy answers 502 (not a plain-text 500) with the backend down, and that StrictMode does not double requests per step; both sentences in the spec were corrected. The spec is confirmed done.
+  > yes, fix both sentences and close it
