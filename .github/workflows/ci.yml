@@ -1,0 +1,265 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache: false
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::These files are not formatted with gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      # shell: bash runs as bash -eo pipefail, so a failing go test fails the
+      # step although tee succeeds. The default run shell has no pipefail.
+      - name: Test
+        shell: bash
+        run: go test -coverprofile=coverage.out ./... | tee "$RUNNER_TEMP/go-test.txt"
+
+      - name: Coverage reports
+        if: ${{ !cancelled() }}
+        run: |
+          go tool cover -func=coverage.out
+          go tool cover -html=coverage.out -o coverage.html
+
+      - name: Upload coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-coverage
+          path: |
+            backend/coverage.out
+            backend/coverage.html
+
+      # Fails closed: a figure that cannot be read misses its requirement.
+      - name: Coverage summary and gate
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          number='^[0-9]+(\.[0-9]+)?$'
+          calc=$(grep -E '^ok[[:space:]]+github\.com/Js-Meneses/fullstack-calculator/backend/internal/calculator[[:space:]]' "$RUNNER_TEMP/go-test.txt" \
+            | grep -oE 'coverage: [0-9.]+% of statements' | grep -oE '[0-9.]+' || true)
+          total=$(go tool cover -func=coverage.out | awk '/^total:/ { sub(/%$/, "", $NF); print $NF }' || true)
+          [[ "$calc" =~ $number ]] || calc=""
+          [[ "$total" =~ $number ]] || total=""
+          show() { if [ -n "$1" ]; then echo "$1%"; else echo "unreadable"; fi; }
+
+          {
+            echo "## Backend coverage"
+            echo
+            echo "| Scope | Coverage | Required |"
+            echo "| --- | --- | --- |"
+            echo "| \`internal/calculator\` | $(show "$calc") | 100.0% |"
+            echo "| Total | $(show "$total") | ≥ 85.0% |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          failed=0
+          if [ "$calc" != "100.0" ]; then
+            echo "::error::internal/calculator coverage is $(show "$calc"), required 100.0%"
+            failed=1
+          fi
+          if [ -z "$total" ] || ! awk -v t="$total" 'BEGIN { exit !(t >= 85.0) }'; then
+            echo "::error::Total coverage is $(show "$total"), required at least 85.0%"
+            failed=1
+          fi
+          exit "$failed"
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.16.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # The thresholds in vite.config.ts fail this step.
+      - name: Test with coverage
+        run: npm run coverage
+
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        run: |
+          node <<'EOF'
+          const fs = require('node:fs')
+          const { total } = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'))
+          const lines = [
+            '## Frontend coverage',
+            '',
+            '| Metric | Coverage | Required |',
+            '| --- | --- | --- |',
+            ...['statements', 'branches', 'functions', 'lines'].map(
+              (key) => `| ${key[0].toUpperCase()}${key.slice(1)} | ${total[key].pct}% | ≥ 85% |`,
+            ),
+            '',
+          ]
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n'))
+          EOF
+
+      - name: Upload coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+
+      - name: Build
+        run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t fullstack-calculator .
+
+      - name: Start container
+        run: docker run -d --name calculator -p 8080:8080 fullstack-calculator
+
+      - name: Wait for the server
+        run: |
+          for _ in $(seq 1 30); do
+            if curl -sf -o /dev/null http://localhost:8080/; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::The server did not answer on http://localhost:8080/ within 30 seconds"
+          exit 1
+
+      - name: Smoke checks
+        shell: bash
+        run: |
+          base=http://localhost:8080
+          tmp=$(mktemp -d)
+
+          # request METHOD PATH [JSON]: sets status and body, saves the headers.
+          request() {
+            local args=(-s -o "$tmp/body" -D "$tmp/headers" -w '%{http_code}' -X "$1")
+            if [ $# -ge 3 ]; then
+              args+=(-H 'Content-Type: application/json' --data-raw "$3")
+            fi
+            status=$(curl "${args[@]}" "$base$2" || true)
+            body=$(cat "$tmp/body"; printf x)
+            body=${body%x}
+          }
+          header() { grep -i "^$1:" "$tmp/headers" | head -n 1 | cut -d ' ' -f 2- | tr -d '\r'; }
+          fail() {
+            echo "::error::Check $check failed"
+            echo "Expected: $1"
+            echo "Actual:   $2"
+            exit 1
+          }
+          expect_status() { [ "$status" = "$1" ] || fail "status $1" "status $status"; }
+          expect_body() { [ "$body" = "$1" ] || fail "body $1" "body $body"; }
+          expect_body_contains() { [[ "$body" == *"$1"* ]] || fail "body containing $1" "body $body"; }
+          expect_header() {
+            local got
+            got=$(header "$1")
+            [ "$got" = "$2" ] || fail "$1: $2" "$1: $got"
+          }
+          expect_header_prefix() {
+            local got
+            got=$(header "$1")
+            [[ "$got" == "$2"* ]] || fail "$1 starting with $2" "$1: $got"
+          }
+          pass() { echo "ok  $check"; }
+
+          check="1: POST /api/v1/calculations (add)"
+          request POST /api/v1/calculations '{"operation":"add","operands":[2,3]}'
+          expect_status 200
+          expect_body '{"result":5}'
+          pass
+
+          check="2: POST /api/v1/calculations (divide by zero)"
+          request POST /api/v1/calculations '{"operation":"divide","operands":[1,0]}'
+          expect_status 422
+          expect_body '{"error":{"code":"division_by_zero","message":"Division by zero is undefined."}}'
+          pass
+
+          check="3: GET /api/v1/calculations"
+          request GET /api/v1/calculations
+          expect_status 405
+          expect_header Allow POST
+          expect_body_contains '"code":"method_not_allowed"'
+          pass
+
+          check="4: GET /api/v1/nope"
+          request GET /api/v1/nope
+          expect_status 404
+          expect_header Content-Type application/json
+          expect_body_contains '"code":"not_found"'
+          pass
+
+          check="5: GET /"
+          request GET /
+          expect_status 200
+          expect_header Content-Type 'text/html; charset=utf-8'
+          expect_body_contains '<title>Calculator</title>'
+          page=$body
+          pass
+
+          script=$(grep -oE '/assets/[^"]+\.js' <<<"$page" | head -n 1 || true)
+          check="6: GET ${script:-/assets/*.js}"
+          [ -n "$script" ] || fail "a /assets/*.js path in the page" "none"
+          request GET "$script"
+          expect_status 200
+          expect_header_prefix Content-Type text/javascript
+          pass
+
+          check="7: GET /nope"
+          request GET /nope
+          expect_status 404
+          expect_header Content-Type 'text/plain; charset=utf-8'
+          pass
+
+          check="8: POST /"
+          request POST /
+          expect_status 405
+          expect_header Allow 'GET, HEAD'
+          pass
+
+      - name: Container logs
+        if: always()
+        run: docker logs calculator

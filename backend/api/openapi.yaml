@@ -5,12 +5,17 @@ info:
   description: |
     Computes one calculator operation per request.
 
-    Every response is JSON with the header `Content-Type: application/json`.
-    Errors share one shape: clients branch on `error.code`; `error.message` is
-    fixed per code and may change without notice.
+    Every response on an `/api/` path is JSON with the header
+    `Content-Type: application/json`. Errors share one shape: clients branch on
+    `error.code`; `error.message` is fixed per code and may change without
+    notice.
 
-    Any path other than `/api/v1/calculations` (including a trailing slash or a
-    different case) returns `404` with code `not_found`, whatever the method.
+    Any `/api` or `/api/` path other than `/api/v1/calculations` (including a
+    trailing slash or a different case after `/api/`) returns `404` with code
+    `not_found`, whatever the method. The `/api` prefix is case-sensitive.
+    Paths outside `/api/` are not part of the API: without `STATIC_DIR` they
+    get the same JSON `404`, and with it they get the frontend's files or a
+    plain-text `404`.
     The query string is ignored.
 
         {"error":{"code":"not_found","message":"No resource at this path."}}

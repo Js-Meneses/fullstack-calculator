@@ -10,6 +10,7 @@ Full-stack calculator: a Go REST API and a React + TypeScript client that consum
 
 ## Repository layout
 
+    .github/workflows/      # CI (ci.yml)
     backend/
       api/                  # OpenAPI 3.1 description (openapi.yaml)
       cmd/server/           # main: wiring and startup only
@@ -21,6 +22,7 @@ Full-stack calculator: a Go REST API and a React + TypeScript client that consum
         calculator/         # state, formatting and input logic, no components
         components/         # React components with their CSS Modules
     specs/                  # one spec per feature (NN-slug.md)
+    Dockerfile              # one image: API and built frontend
 
 ## Backend principles
 
@@ -32,7 +34,7 @@ Full-stack calculator: a Go REST API and a React + TypeScript client that consum
 ## API conventions
 
 - Single endpoint: `POST /api/v1/calculations`, with the operation and operands in the JSON body.
-- Every response is JSON. Errors share one shape with a machine-readable `code` and a human-readable `message`.
+- Every response on an `/api/` path is JSON. Errors share one shape with a machine-readable `code` and a human-readable `message`.
 
 ## Frontend principles
 

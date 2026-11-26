@@ -71,3 +71,40 @@
   > Fix the example (Recommended); Say "six or more" (Recommended)
 - Close: the acceptance check showed that the Vite proxy answers 502 (not a plain-text 500) with the backend down, and that StrictMode does not double requests per step; both sentences in the spec were corrected. The spec is confirmed done.
   > yes, fix both sentences and close it
+
+## 2026-11-26 — /spec → specs/03-packaging-ci-docs.md
+
+**Prompt**
+
+> /spec Packaging, CI and documentation for the calculator. 1) Container: a single multi-stage Dockerfile at the repo root (pinned base images: Node 24 alpine, Go alpine matching backend/go.mod, gcr.io/distroless/static-debian13:nonroot) that builds the React frontend and the Go backend into one small non-root image where the Go server serves both the API and the built frontend on one port, so `docker build` plus `docker run` is all a reviewer needs. Add a .dockerignore that keeps node_modules, build output, coverage and .git out of the build context. This needs a small backend change: when the STATIC_DIR variable is set, the server also serves the files in that directory on non-API paths; /api/ paths keep their JSON behaviour (including JSON 404 and 405), unknown non-API paths return a plain 404 with no index.html fallback, and with the variable unset the server stays API-only. The frontend is not embedded in the binary. Update any sentence in AGENTS.md, backend/api/openapi.yaml and specs that says every response is JSON so that it applies to the API paths. No HEALTHCHECK. 2) CI: a GitHub Actions workflow on push to main and on pull requests with three jobs: backend (vet, gofmt check, tests, coverage, and a gate that fails unless internal/calculator is at 100% and the total is at least 85%), frontend (lint, tests with coverage, build), and docker (build the image, run it, and smoke-test the API success and error paths and the served page). Coverage reports are uploaded as artifacts and summarized in the job summary; no third-party services. 3) README at the repo root with: overview and CI badge, quick start with Docker, local development for backend and frontend, tests and coverage, commands for systems without make, API usage with curl examples for success and error cases, design decisions and assumptions linked to the specs, project structure, and the AI-assisted workflow (specs, AGENTS.md, the skills in .claude/skills adapted from Klerith/fernando-skills and credited in each skill's NOTICE.md) linking to the existing PROMPTS.md. No screenshots or other binary assets. Out of scope: cloud deployment, docker compose, HTTPS, editing PROMPTS.md by hand, and new calculator features.
+
+**Clarifications**
+
+1. **How strictly to pin base images and GitHub Actions?** → Exact tags, major action tags
+2. **What do non-GET/HEAD requests get on non-API paths with STATIC_DIR set?** → 405 for every non-API path
+3. **What if STATIC_DIR is set but is not an existing directory?** → Fail at startup (Recommended)
+4. **How to write the README's API examples for PowerShell users?** → curl + PowerShell note (Recommended)
+
+## 2026-11-26 — /spec 03 (revision)
+
+**Prompt**
+
+> /spec 03 Four corrections. 1) Backend job step 5: the step must fail when go test fails even though its output is also saved to a file; say how (shell: bash, which sets pipefail, or set -o pipefail before the pipe), because the default run shell has no pipefail and tee would hide the failure. 2) README "Without make": go flags that contain a dot are split by Windows PowerShell 5.1, so show them quoted, which works in both shells: go test "-coverprofile=coverage.out" ./..., go tool cover "-func=coverage.out", go tool cover "-html=coverage.out" -o coverage.html. Keep the claim that the commands work the same in PowerShell and POSIX shells only for the quoted form. 3) Content types: on Windows, Go's mime package reads the registry, and this machine maps .js to application/javascript, so the text/javascript rule holds in the Linux image, not on every development machine. Say so in the routing rules, make static_test.go assert Content-Type only for index.html (text/html; charset=utf-8), and leave the JavaScript type to smoke check 6. 4) The acceptance criterion with git grep -i "every response" also matches the step 2 sentence of SPEC 01 ("the Content-Type header on every response"), which is not reworded; drop -i so it matches only the three sentences that start with "Every response".
+
+**Changes**
+
+- Backend job step 5 pipes `go test` through `tee` with `shell: bash`, which GitHub runs as `bash -eo pipefail`, and says why the default `run` shell would hide a failure.
+- README "Without make" row: the three dotted flags are quoted, and the claim that the commands work the same in PowerShell and POSIX shells applies to the quoted form only. New acceptance criterion checks the quotes.
+- Routing rules: `Content-Type` comes from Go's `mime` package, the listed types hold in the Linux image, and Windows can override them through the registry (`.js` as `application/javascript` on this machine). Step 1's `static_test.go` asserts `Content-Type` only for `index.html`, as `text/html; charset=utf-8`; the `.js` type is left to smoke check 6.
+- The wording criterion uses `git grep -n "Every response"` without `-i`, and expects exactly three lines, one per file, each starting with `Every response on an /api/ path`. The OpenAPI rewording now gives that exact sentence instead of "Scoped to /api and /api/ paths", so the criterion can match it.
+
+## 2026-11-26 — /spec-impl 03-packaging-ci-docs
+
+**Prompt**
+
+> /spec-impl @specs/03-packaging-ci-docs.md
+
+**Decisions during implementation**
+
+- Close: 16 of 21 acceptance criteria were seen passing; the five (manual) ones (browser check and Ctrl+C, the CI run, its coverage summaries and artifacts, README rendering on GitHub) were accepted as pending. The spec is confirmed done.
+  > yes, mark it implemented and commit

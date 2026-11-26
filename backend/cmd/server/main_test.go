@@ -6,6 +6,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -41,6 +43,30 @@ func TestListenAddr(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("listenAddr() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunRejectsInvalidStaticDir(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "file.txt")
+	if err := os.WriteFile(file, []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("write %s: %v", file, err)
+	}
+
+	tests := map[string]string{
+		"missing path": filepath.Join(dir, "missing"),
+		"regular file": file,
+	}
+	for name, staticDir := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			err := run(ctx, env(map[string]string{"PORT": freePort(t), "STATIC_DIR": staticDir}))
+			if !errors.Is(err, errInvalidStaticDir) {
+				t.Errorf("run() error = %v, want %v", err, errInvalidStaticDir)
 			}
 		})
 	}
@@ -93,7 +119,9 @@ func TestRunServesAndShutsDown(t *testing.T) {
 	go func() { done <- run(ctx, env(map[string]string{"PORT": port})) }()
 
 	url := "http://127.0.0.1:" + port + "/api/v1/calculations"
-	resp := postWhenReady(t, url, `{"operation":"add","operands":[2,3]}`)
+	resp := whenReady(t, func() (*http.Response, error) {
+		return http.Post(url, "application/json", strings.NewReader(`{"operation":"add","operands":[2,3]}`))
+	})
 	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
@@ -114,12 +142,12 @@ func TestRunServesAndShutsDown(t *testing.T) {
 	}
 }
 
-// postWhenReady retries the request until the server accepts connections.
-func postWhenReady(t *testing.T, url, body string) *http.Response {
+// whenReady retries the request until the server accepts connections.
+func whenReady(t *testing.T, do func() (*http.Response, error)) *http.Response {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		resp, err := http.Post(url, "application/json", strings.NewReader(body))
+		resp, err := do()
 		if err == nil {
 			return resp
 		}
@@ -127,5 +155,37 @@ func postWhenReady(t *testing.T, url, body string) *http.Response {
 			t.Fatalf("server did not answer: %v", err)
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func TestRunServesStaticDir(t *testing.T) {
+	port := freePort(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan error, 1)
+	vars := map[string]string{"PORT": port, "STATIC_DIR": newStaticDir(t)}
+	go func() { done <- run(ctx, env(vars)) }()
+
+	resp := whenReady(t, func() (*http.Response, error) {
+		return http.Get("http://127.0.0.1:" + port + "/")
+	})
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("read response: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK || string(body) != indexBody {
+		t.Errorf("response = %d %s, want 200 %s", resp.StatusCode, body, indexBody)
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("run() error = %v, want nil after cancel", err)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("run() did not return after its context was cancelled")
 	}
 }
